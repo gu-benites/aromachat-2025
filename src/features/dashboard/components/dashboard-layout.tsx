@@ -1,8 +1,8 @@
 "use client";
 
 import { ReactNode, useState } from "react";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Sidebar } from "@/components/sidebar";
+import { ThemeToggle } from "@/components/common/theme-toggle";
+import { Sidebar } from "./sidebar";
 import { Button } from "@/components/ui/button";
 import { Menu, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";

@@ -1,5 +1,0 @@
-File: project-structure-guidelines.md
-Section: src/ Directory: The Core Application Code -> src/features/ -> Encapsulation:
-Location: The sentence "ESLint rules should enforce this."
-
-Action for you: Implement the ESLint rule (e.g., using eslint-plugin-import's no-restricted-paths) to prevent deep imports into feature modules, enforcing that imports only come from the feature's index.ts.
