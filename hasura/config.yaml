@@ -1,0 +1,27 @@
+version: 3
+endpoint: ${HASURA_GRAPHQL_ENDPOINT}
+admin_secret: ${HASURA_GRAPHQL_ADMIN_SECRET}
+metadata_directory: metadata
+actions:
+  kind: synchronous
+  handler_webhook_baseurl: ${NEXT_PUBLIC_APP_URL}/api/actions
+  headers: []
+event_triggers: []
+cron_triggers: []
+allowlist: false
+remote_schemas: []
+api_limits:
+  disabled: false
+  per_ip:
+    rate_limit: 1000
+    unique_params: ip
+    timeout: 30
+    concurrency: 100
+  per_role: {}
+  global:
+    rate_limit: 1000
+    concurrency: 100
+    timeout: 30
+    ip_prefix: 32
+    max_reqs_per_batch: 100
+    batch_interval: 1

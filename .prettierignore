@@ -1,0 +1,78 @@
+# Dependencies
+node_modules/
+.next/
+.out/
+
+# Build output
+/build
+/dist
+
+# Cache
+.cache/
+.parcel-cache/
+
+# Environment files
+.env*
+!.env.example
+
+# TypeScript
+*.d.ts
+
+# Testing
+/coverage
+
+# Misc
+.DS_Store
+*.pem
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Next.js
+.next/
+
+# Build output
+/out/
+
+# Production
+/build
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local development
+.env.local
+
+# Supabase
+.supabase/
+
+# Generated files
+**/generated/*
+
+# Build files
+.next/
+build/
+
+# Yarn
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Lock files
+yarn.lock
+package-lock.json
+
+# Public directory
+/public/*
+!/public/.gitkeep

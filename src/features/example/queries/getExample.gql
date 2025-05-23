@@ -1,0 +1,9 @@
+query GetExample($id: uuid!) {
+  example_by_pk(id: $id) {
+    id
+    title
+    description
+    created_at
+    updated_at
+  }
+}

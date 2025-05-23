@@ -1,0 +1,35 @@
+schema: 
+  - ${HASURA_GRAPHQL_ENDPOINT}:
+      headers:
+        x-hasura-admin-secret: ${HASURA_GRAPHQL_ADMIN_SECRET}
+documents: 
+  - 'src/**/*.graphql'
+extensions:
+  codegen:
+    generates:
+      src/gql/:
+        preset: client
+        plugins:
+          - typescript
+          - typescript-operations
+          - typescript-react-query
+        config:
+          skipTypename: true
+          withHooks: true
+          withHOC: false
+          withComponent: false
+          fetcher: graphql-request
+          exposeFetcher: true
+          exposeQueryKeys: true
+          exposeMutationKeys: true
+          addInfiniteQuery: true
+          legacyMode: false
+          preResolveTypes: true
+          strictScalars: true
+          scalars:
+            uuid: string
+            timestamptz: string
+            jsonb: any
+      src/gql/graphql.schema.json:
+        plugins:
+          - introspection

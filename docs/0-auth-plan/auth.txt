@@ -1,0 +1,41 @@
+**Important Next Steps for Your Team:**
+
+1. *   **Implement getServerAuthenticatedUser:**
+1.     
+1.     * *   This function needs to be created in src/features/auth/utils/api-auth.utils.ts.
+1.     *     
+1.     * *   It should handle Supabase session verification (likely using createSupabaseServerClient(cookies()) and supabase.auth.getUser()).
+1.     *     
+1.     * *   It should fetch the user's application profile (similar to how useAuth does it, but server-side).
+1.     *     
+1.     * *   It should return an object { user: AuthenticatedUser | null, error: Error | null }.
+1.     *     
+1.     * *   The AuthenticatedUser type should be defined (or imported) here, representing the merged Supabase user and application profile.
+1.     *     
+1. *   **Update createApiRouteHandler:**
+1.     
+1.     * *   Ensure that the createApiRouteHandler (in src/lib/utils/api.utils.ts) uses a similar mechanism (or calls getServerAuthenticatedUser or a part of its logic) to populate context.user with the AuthenticatedUser type when requireAuth: true.
+1.     *     
+1. *   **Update Service Signatures:**
+1.     
+1.     * *   Services like updateUserProfile, getUserProfileById, createOrderInDb might need their function signatures updated if they are now expected to receive the full AuthenticatedUser object instead of just a userId. This allows services to perform more complex authorization or use other user details.
+1.     *
+
+
+**In Summary of Where to Look & What to Do:**
+
+1. *   **Primary Focus:** The actual implementations of:
+1.     
+1.     * *   getServerAuthenticatedUser (likely in src/features/auth/utils/api-auth.utils.ts)
+1.     *     
+1.     * *   createApiRouteHandler (likely in src/lib/utils/api.utils.ts)  
+1.     *     These are the functions that produce the user object server-side.
+1.     *     
+1. *   **Secondary Focus (Documentation Adjustments):**
+1.     
+1.     * *   In feature-implementation-cheat-sheet.md (Server Action examples).
+1.     *     
+1.     * *   In service-implementation-cheat-sheet.md (Server Action and API Route examples).
+1.     *     
+1.     * *   In feature-service-overview-guidelines.md (Service Parameters section).
+1.     *
