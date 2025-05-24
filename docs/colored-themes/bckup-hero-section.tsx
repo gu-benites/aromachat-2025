@@ -537,8 +537,7 @@ const InteractiveHero: React.FC = () => {
 
    useEffect(() => {
        handleResize();
-       const canvasElement = canvasRef.current;
-        const handleMouseLeave = () => {
+       const handleMouseLeave = () => {
             mousePositionRef.current = { x: null, y: null };
         };
 

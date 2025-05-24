@@ -1,2 +1,3 @@
-export { default as HeroSection } from './components/hero-section';
-// Export other components here as needed
+export * from './hero-section';
+export * from './types';
+export * from './constants';

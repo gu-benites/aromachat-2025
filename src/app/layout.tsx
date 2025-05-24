@@ -30,9 +30,12 @@ export default function RootLayout({
             defaultTheme="system"
             enableSystem
             disableTransitionOnChange
+            enableColorScheme
           >
-            {children}
-            <Toaster position="top-center" />
+            <div className="min-h-screen bg-background">
+              {children}
+              <Toaster position="top-center" />
+            </div>
           </ThemeProvider>
         </QueryProvider>
       </body>

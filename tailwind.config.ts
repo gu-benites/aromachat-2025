@@ -58,6 +58,16 @@ const config: Config = {
   				'3': 'hsl(var(--chart-3))',
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
+  			},
+  			nexus: {
+  				green: 'hsl(158, 64%, 52%)',
+  				'dark': '#111111',
+  				'gray': {
+  					'light': 'hsl(0, 0%, 20%)',
+  					'DEFAULT': 'hsl(0, 0%, 15%)',
+  					'dark': 'hsl(0, 0%, 10%)',
+  					'text': 'hsl(0, 0%, 60%)'
+  				}
   			}
   		},
   		keyframes: {
