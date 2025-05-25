@@ -22,6 +22,7 @@ import {
   BellRing,
   Headphones,
   FileText,
+  PanelLeftClose,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -398,9 +399,14 @@ export function Sidebar({ onClose, collapsed = false, onUserMenuClick }: Sidebar
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="h-8 w-8 hover:bg-accent hover:text-accent-foreground"
+            className="h-8 w-8 hover:bg-accent hover:text-accent-foreground transition-colors"
+            aria-label={collapsed ? "Open sidebar" : "Collapse sidebar"}
           >
-            {collapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
+            {collapsed ? (
+              <Menu className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </div>
