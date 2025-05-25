@@ -8,14 +8,12 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronUp,
-  ChevronRight,
   Home,
   KanbanSquare,
   LayoutGrid,
   LogOut,
   Mail,
   Menu,
-  MessageSquare,
   Search,
   Settings,
   Target,
@@ -23,6 +21,8 @@ import {
   Headphones,
   FileText,
   X,
+  MessageSquare,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,7 @@ interface SidebarProps {
 const navItems: NavItem[] = [
   {
     title: "Dashboard",
-    href: "/dashboard",
+    href: "/",
     icon: <Home className="h-5 w-5" />,
   },
   {
@@ -61,9 +61,8 @@ const navItems: NavItem[] = [
   },
   {
     title: "Chat",
-    href: "/dashboard/chat",
+    href: "/chat",
     icon: <MessageSquare className="h-5 w-5" />,
-    badge: 3, // Example badge count
   },
   {
     title: "Reporting",
@@ -262,15 +261,7 @@ function MenuItem({
   onSubmenuToggle?: () => void;
 }) {
   const pathname = usePathname();
-  // Normalize paths to handle trailing slashes
-  const normalizedPath = pathname.replace(/\/$/, '');
-  const normalizedHref = item.href.replace(/\/$/, '');
-  
-  // Only mark as active if it's an exact match or a direct child path
-  const isActive = 
-    normalizedPath === normalizedHref || 
-    (normalizedPath.startsWith(`${normalizedHref}/`) && 
-     !normalizedPath.replace(normalizedHref, '').includes('/'));
+  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
 
   return (
     <>

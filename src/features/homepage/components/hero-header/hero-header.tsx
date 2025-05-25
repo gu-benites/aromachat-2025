@@ -116,7 +116,7 @@ const HeroHeader: React.FC = () => {
           
           {/* Desktop Action Buttons */}
           <div className="hidden md:flex items-center flex-shrink-0 space-x-4 lg:space-x-6">
-             <NavLink href="#signin" label="Sign in" />
+             <NavLink href="/dashboard" label="Dashboard" isButton />
              <NavLink href="#book-demo" label={PRIMARY_BUTTON_TEXT} isButton isPrimary />
           </div>
 

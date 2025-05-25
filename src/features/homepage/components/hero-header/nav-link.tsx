@@ -66,10 +66,11 @@ const NavLink: React.FC<NavLinkProps> = ({
       {label}
       {hasDropdown && (
         <motion.div 
+          className="inline-flex items-center"
           animate={{ rotate: isOpen ? 180 : 0 }} 
           transition={{ duration: 0.2 }}
         >
-          <ChevronDownIcon className="w-3 h-3 ml-1 inline-block transition-transform duration-200 group-hover:rotate-180" />
+          <ChevronDownIcon className="w-3 h-3 ml-1 transition-transform duration-200 group-hover:rotate-180" />
         </motion.div>
       )}
       {!hasDropdown && (

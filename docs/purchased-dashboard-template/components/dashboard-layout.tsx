@@ -1,8 +1,8 @@
 "use client";
 
 import { ReactNode, useState, useEffect } from "react";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { Sidebar } from "./sidebar";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { Menu, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,11 +13,7 @@ interface DashboardLayoutProps {
 }
 
 const getPageTitle = (pathname: string): string => {
-  // Remove /dashboard prefix for route matching
-  const normalizedPath = pathname.replace(/^\/dashboard/, '');
-  
   const routes: Record<string, string> = {
-    "": "Dashboard",
     "/": "Dashboard",
     "/chat": "Chat",
     "/search": "Search",
@@ -25,24 +21,12 @@ const getPageTitle = (pathname: string): string => {
     "/check-ins": "Check-ins",
     "/objectives": "Objectives",
     "/career-hub": "Career Hub",
+    "/notifications": "Notifications",
     "/mail": "Mail",
     "/kanban": "Kanban",
     "/tasks": "Tasks",
   };
-  
-  // Check for exact matches first
-  if (routes[normalizedPath]) {
-    return routes[normalizedPath];
-  }
-  
-  // Check for nested routes
-  for (const [path, title] of Object.entries(routes)) {
-    if (path !== '/' && path !== '' && normalizedPath.startsWith(path)) {
-      return title;
-    }
-  }
-  
-  return "Dashboard";
+  return routes[pathname] || "Dashboard";
 };
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -80,12 +64,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return null;
   }
 
-  const handleUserMenuClick = () => {
-    if (isMobile) {
-      setSidebarOpen(true);
-    }
-  };
-
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
       {/* Backdrop for mobile */}
@@ -93,7 +71,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div
           className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
           onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
         />
       )}
 
@@ -107,7 +84,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <Sidebar 
           onClose={() => setSidebarOpen(!sidebarOpen)}
           collapsed={!sidebarOpen && !isMobile}
-          onUserMenuClick={handleUserMenuClick}
+          onUserMenuClick={() => setSidebarOpen(true)}
         />
       </div>
 
@@ -123,7 +100,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               )}
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              aria-label="Toggle sidebar"
             >
               <Menu className="h-5 w-5" />
               <span className="sr-only">Toggle sidebar</span>
@@ -136,7 +112,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               variant="ghost" 
               size="icon"
               className="hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              aria-label="More options"
             >
               <MoreHorizontal className="h-5 w-5" />
               <span className="sr-only">More options</span>

@@ -35,6 +35,14 @@ const nextConfig = {
     // Set to true to ignore ESLint errors during build
     ignoreDuringBuilds: true,
   },
+  
+  // Configure compiler options
+  compiler: {
+    // Remove attributes that cause hydration warnings
+    reactRemoveProperties: true,
+    // Or more specifically target the problematic attribute
+    // reactRemoveProperties: { properties: ['^cz-'] }
+  },
 };
 
 module.exports = nextConfig;
