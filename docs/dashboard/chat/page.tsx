@@ -1,5 +1,5 @@
 import { DashboardLayout } from '@/features/dashboard/components/dashboard-layout';
-import { ChatPage } from '@/features/dashboard/components/chat';
+import { ChatPage } from '@/features/chat/components';
 
 export default function DashboardChatPage() {
   return (

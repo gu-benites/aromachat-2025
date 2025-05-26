@@ -19,11 +19,9 @@ import {
   Search,
   Settings,
   Target,
-  BellRing,
   Headphones,
   FileText,
   PanelLeftClose,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -62,7 +60,7 @@ const navItems: NavItem[] = [
   },
   {
     title: "Chat",
-    href: "/dashboard/chat",
+    href: "/chat",
     icon: <MessageSquare className="h-5 w-5" />,
     badge: 3, // Example badge count
   },

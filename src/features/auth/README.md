@@ -104,8 +104,7 @@ src/features/auth/
 ├── schemas/                 
 │   └── auth.schemas.ts       # Validation schemas
 ├── services/                
-│   ├── auth.service.ts       # Client auth operations
-│   └── server-auth.service.ts # Server-side auth operations
+│   └── auth.service.ts       # Centralized auth operations for both client and server
 ├── types/                   
 │   └── auth.types.ts         # Type definitions
 ├── utils/                   
@@ -310,13 +309,43 @@ NEXT_PUBLIC_SUPABASE_COOKIE_LIFETIME=3600  # 1 hour
 
 ```bash
 # Core dependencies
-npm install @supabase/supabase-js @supabase/ssr
+npm install @supabase/supabase-js  # Only needed in the root client
 
 # Form handling
 npm install @hookform/resolvers zod react-hook-form
 
 # Security
 npm install @hapi/rate-limit csrf helmet
+```
+
+## Centralized Client Architecture
+
+The authentication system uses a centralized Supabase client for better security and maintainability:
+
+1. **Client-Side**: Uses `createBrowserClient()` from `@/lib/clients/supabase`
+2. **Server-Side**: Uses `createServerClient()` from the same module
+3. **Session Management**: Handled automatically with secure HTTP-only cookies
+4. **Error Handling**: Consistent error handling across all auth operations
+
+This approach ensures:
+- Single source of truth for client configuration
+- Consistent error handling
+- Better testability
+- Easier maintenance
+
+### Client Usage
+
+The application uses a centralized Supabase client for all authentication operations:
+
+```typescript
+// Import from the centralized client
+import { createBrowserClient, createServerClient } from '@/lib/clients/supabase';
+
+// For client components
+const supabase = createBrowserClient();
+
+// For server components/actions
+const supabase = createServerClient();
 ```
 
 ### Implementation Example

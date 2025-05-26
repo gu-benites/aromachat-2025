@@ -6,51 +6,28 @@ import { Sidebar } from "./sidebar";
 import { Button } from "@/components/ui/button";
 import { Menu, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { usePathname } from "next/navigation";
+import { useSelectedLayoutSegment } from "next/navigation";
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
 
-const getPageTitle = (pathname: string): string => {
-  // Remove /dashboard prefix for route matching
-  const normalizedPath = pathname.replace(/^\/dashboard/, '');
+const getPageTitle = (segment: string | null): string => {
+  if (!segment) return 'Dashboard';
   
-  const routes: Record<string, string> = {
-    "": "Dashboard",
-    "/": "Dashboard",
-    "/chat": "Chat",
-    "/search": "Search",
-    "/reporting": "Reporting",
-    "/check-ins": "Check-ins",
-    "/objectives": "Objectives",
-    "/career-hub": "Career Hub",
-    "/mail": "Mail",
-    "/kanban": "Kanban",
-    "/tasks": "Tasks",
-  };
-  
-  // Check for exact matches first
-  if (routes[normalizedPath]) {
-    return routes[normalizedPath];
-  }
-  
-  // Check for nested routes
-  for (const [path, title] of Object.entries(routes)) {
-    if (path !== '/' && path !== '' && normalizedPath.startsWith(path)) {
-      return title;
-    }
-  }
-  
-  return "Dashboard";
+  // Convert kebab-case to Title Case
+  return segment
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 };
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [mounted, setMounted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
-  const pathname = usePathname();
-  const pageTitle = getPageTitle(pathname);
+  const segment = useSelectedLayoutSegment();
+  const pageTitle = getPageTitle(segment);
 
   useEffect(() => {
     setMounted(true);
