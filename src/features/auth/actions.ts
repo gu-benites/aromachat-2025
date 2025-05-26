@@ -1,16 +1,36 @@
 // src/features/auth/actions.ts
 'use server';
 
-import { redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger/client.logger';
 import { authService } from '@/features/auth/services/auth.service';
+import { signUpSchema, forgotPasswordSchema, resetPasswordSchema } from './schemas/auth.schemas';
 
-type ActionResult = {
-  error: string | null;
-  success?: boolean;
+/**
+ * Custom error class for authentication-related errors
+ */
+class AuthError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string = 'AUTH_ERROR',
+    public readonly status: number = 400,
+    public readonly details?: Record<string, unknown>
+  ) {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
+
+/**
+ * Standard response format for all auth actions
+ */
+type ActionResult<T = unknown> = {
+  success: boolean;
   message?: string;
+  error?: string | null;
+  data?: T;
   fieldErrors?: Record<string, string[]>;
+  redirectTo?: string;
 };
 
 type FormAction = (formData: FormData) => Promise<ActionResult>;
@@ -56,58 +76,164 @@ const getBaseUrl = () => {
 };
 
 export const signIn: FormAction = async (formData) => {
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
-  
-  if (!email || !password) {
-    return { error: 'Email and password are required' };
-  }
-
   try {
+    const email = formData.get('email')?.toString();
+    const password = formData.get('password')?.toString();
+    
+    if (!email || !password) {
+      return {
+        success: false,
+        error: 'Email and password are required',
+        fieldErrors: {
+          email: !email ? ['Email is required'] : [],
+          password: !password ? ['Password is required'] : []
+        }
+      };
+    }
+
     await authService.signInWithEmail({ email, password });
-    redirect('/dashboard');
-    return { error: null };
+    
+    return {
+      success: true,
+      message: 'Successfully signed in',
+      redirectTo: '/dashboard',
+      error: null
+    };
   } catch (error) {
-    console.error('Sign in error:', error);
-    return { 
-      error: error instanceof Error ? error.message : 'Failed to sign in' 
+    const errorMessage = error instanceof Error ? error.message : 'Failed to sign in';
+    actionLogger.error('Sign in error:', new AuthError(errorMessage, 'SIGNIN_ERROR'));
+    
+    const fieldErrors: Record<string, string[]> = {};
+    if (errorMessage.toLowerCase().includes('email')) {
+      fieldErrors['email'] = [errorMessage];
+    } else if (errorMessage.toLowerCase().includes('password')) {
+      fieldErrors['password'] = [errorMessage];
+    }
+    
+    return {
+      success: false,
+      error: 'Authentication failed. Please check your credentials and try again.',
+      fieldErrors: Object.keys(fieldErrors).length > 0 ? fieldErrors : undefined
     };
   }
 }
 
+/**
+ * Handles user registration form submission
+ * @param formData Form data from the registration form
+ * @returns ActionResult with success/error status and messages
+ */
 export const signUpAction: FormAction = async (formData) => {
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
-  const fullName = formData.get('fullName') as string;
-  
-  if (!email || !password || !fullName) {
-    return { error: 'All fields are required' };
-  }
-
   try {
-    await authService.signUp({ email, password, fullName });
-    redirect('/auth/verify-email');
-    return { error: null };
+    // Parse and validate the form data
+    const result = signUpSchema.safeParse({
+      firstName: formData.get('firstName'),
+      lastName: formData.get('lastName'),
+      email: formData.get('email'),
+      password: formData.get('password'),
+      confirmPassword: formData.get('confirmPassword'),
+    });
+
+    // Handle validation errors
+    if (!result.success) {
+      const fieldErrors = result.error.flatten().fieldErrors;
+      return {
+        success: false,
+        error: 'Validation failed',
+        fieldErrors,
+      };
+    }
+
+    const { email, password, firstName, lastName } = result.data;
+
+    // Call the auth service to register the user
+    const { data, error } = await authService.signUp({ 
+      email, 
+      password, 
+      firstName, 
+      lastName 
+    });
+
+    if (error || !data?.user) {
+      throw new AuthError(error?.message || 'Failed to create account', 'SIGNUP_ERROR');
+    }
+
+    // If email confirmation is required, return success with message
+    if (!data.user.identities?.length) {
+      return {
+        success: true,
+        message: 'Registration successful! Please check your email to verify your account.',
+        redirectTo: '/login',
+        error: null,
+      };
+    }
+
+    // If user is already confirmed, redirect to dashboard
+    return {
+      success: true,
+      message: 'Registration successful!',
+      redirectTo: '/dashboard',
+      error: null,
+    };
   } catch (error) {
-    console.error('Sign up error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    actionLogger.error('Sign up error:', new AuthError(errorMessage, 'SIGNUP_ERROR'));
+    
+    // Handle specific error cases
+    let errorResponse: Omit<ActionResult, 'success'> = {
+      error: 'Registration failed. Please try again.',
+      message: undefined
+    };
+
+    if (errorMessage.toLowerCase().includes('already in use')) {
+      errorResponse = {
+        error: 'This email is already registered. Please use a different email or sign in.',
+        fieldErrors: {
+          email: ['This email is already registered']
+        }
+      };
+    } else if (errorMessage.toLowerCase().includes('password')) {
+      errorResponse = {
+        error: 'Invalid password. Please ensure it meets the requirements.',
+        fieldErrors: {
+          password: [errorMessage]
+        }
+      };
+    } else if (errorMessage.toLowerCase().includes('email')) {
+      errorResponse = {
+        error: 'Please enter a valid email address.',
+        fieldErrors: {
+          email: [errorMessage]
+        }
+      };
+    }
+    
     return { 
-      error: error instanceof Error ? error.message : 'Failed to create account' 
+      success: false,
+      ...errorResponse
     };
   }
 }
 
-export async function signOut() {
+export const signOut = async (): Promise<ActionResult> => {
   try {
     await authService.signOut();
+    return {
+      success: true,
+      message: 'Successfully signed out',
+      redirectTo: '/login',
+      error: null
+    };
   } catch (error) {
-    console.error('Sign out error:', error);
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : 'Failed to sign out';
+    actionLogger.error('Sign out error:', new Error(errorMessage));
+    
+    return {
+      success: false,
+      error: 'Failed to sign out. Please try again.'
+    };
   }
-  
-  redirect('/login');
 }
-
-import { forgotPasswordSchema } from './schemas/auth.schemas';
 
 export const forgotPassword: FormAction = async (formData) => {
   try {
@@ -147,7 +273,7 @@ export const forgotPassword: FormAction = async (formData) => {
   }
 }
 
-import { resetPasswordSchema } from './schemas/auth.schemas';
+// Schema imports are now at the top of the file
 
 export const resetPassword: FormAction = async (formData) => {
   try {

@@ -13,7 +13,8 @@ type SignInCredentials = {
 type SignUpParams = {
   email: string;
   password: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
 };
 
 type ResetPasswordParams = {
@@ -149,26 +150,70 @@ export async function signInWithEmail({
 export async function signUp({ 
   email, 
   password, 
-  fullName 
+  firstName,
+  lastName
 }: SignUpParams): Promise<AuthResponse> {
-  const supabase = createBrowserClient();
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: fullName,
+  try {
+    const supabase = createBrowserClient();
+    
+    // First, sign up the user
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          full_name: `${firstName} ${lastName}`.trim(),
+          email_verified: false,
+        },
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
       },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-    },
-  });
+    });
 
-  if (error) {
-    authLogger.error('Sign up error:', error);
-    throw new Error(error.message);
+    if (error) {
+      // Map common Supabase errors to more user-friendly messages
+      const errorMessage = (() => {
+        if (error.message.includes('already registered')) {
+          return 'This email is already registered. Please sign in or use a different email.';
+        } else if (error.message.includes('password')) {
+          return 'Invalid password. Please ensure it meets the requirements.';
+        } else if (error.message.includes('email')) {
+          return 'Please enter a valid email address.';
+        }
+        return error.message || 'Failed to create account';
+      })();
+      
+      const errorObj = new Error(errorMessage);
+      authLogger.error('Sign up error:', errorObj);
+      throw errorObj;
+    }
+
+    // If we have a user, update their profile with additional data
+    if (data.user) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: data.user.id,
+          first_name: firstName,
+          last_name: lastName,
+          full_name: `${firstName} ${lastName}`.trim(),
+          email: data.user.email,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (profileError) {
+        authLogger.error('Error updating user profile:', profileError);
+        // Don't fail the signup if profile update fails
+      }
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error : new Error('Unknown error during sign up');
+    authLogger.error('Sign up error:', errorMessage);
+    throw errorMessage;
   }
-
-  return { data, error: null };
 }
 
 /**

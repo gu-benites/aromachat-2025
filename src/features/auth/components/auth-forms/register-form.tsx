@@ -1,33 +1,28 @@
 'use client';
 
-import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useState, useTransition } from 'react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Eye, EyeOff } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { signUpAction } from '@/features/auth/actions';
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { useSignUp } from '@/features/auth/queries';
+import { signUpSchema } from '@/features/auth/schemas/auth.schemas';
+import { z } from 'zod';
 
-const formSchema = z.object({
-  firstName: z.string().min(2, 'First name must be at least 2 characters'),
-  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  confirmPassword: z.string().min(6, 'Please confirm your password'),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<typeof signUpSchema>;
 
 export function RegisterForm() {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [serverError, setServerError] = useState<string | null>(null);
+
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(signUpSchema),
     defaultValues: {
       firstName: '',
       lastName: '',
@@ -37,13 +32,56 @@ export function RegisterForm() {
     },
   });
 
-  const { mutate: signUp, isPending } = useSignUp();
+  const onSubmit = async (values: FormValues) => {
+    setServerError(null);
+    
+    const formData = new FormData();
+    Object.entries(values).forEach(([key, value]) => {
+      formData.append(key, String(value));
+    });
 
-  const onSubmit = (values: FormValues) => {
-    signUp({
-      email: values.email,
-      password: values.password,
-      fullName: `${values.firstName} ${values.lastName}`,
+    startTransition(async () => {
+      try {
+        const result = await signUpAction(formData);
+        
+        if (!result) {
+          throw new Error('No response from server');
+        }
+
+        if (result.success) {
+          // Show success message
+          toast.success(result.message || 'Registration successful!');
+          
+          // Redirect if needed
+          if (result.redirectTo) {
+            router.push(result.redirectTo);
+          }
+          return;
+        }
+
+        // Handle error response
+        if (result.error) {
+          setServerError(result.error);
+          
+          // Handle field-specific errors
+          if (result.fieldErrors) {
+            Object.entries(result.fieldErrors).forEach(([field, messages]) => {
+              if (Array.isArray(messages) && messages.length > 0) {
+                form.setError(field as keyof FormValues, {
+                  type: 'server',
+                  message: messages[0],
+                });
+              }
+            });
+          }
+          
+          toast.error(result.error);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+        setServerError(errorMessage);
+        toast.error(errorMessage);
+      }
     });
   };
 
@@ -83,6 +121,11 @@ export function RegisterForm() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          {serverError && (
+            <div className="p-4 text-sm text-destructive bg-destructive/10 rounded-md">
+              {serverError}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
