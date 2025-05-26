@@ -1,13 +1,10 @@
+// src/features/auth/actions.ts
 'use server';
 
 import { redirect } from 'next/navigation';
-import { 
-  signInWithEmail, 
-  signUp, 
-  signOut as serverSignOut,
-  resetPassword as resetPasswordService,
-  updatePassword
-} from './services/auth.service';
+import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger/client.logger';
+import { authService } from '@/features/auth/services/auth.service';
 
 type ActionResult = {
   error: string | null;
@@ -17,6 +14,40 @@ type ActionResult = {
 };
 
 type FormAction = (formData: FormData) => Promise<ActionResult>;
+
+const actionLogger = logger;
+
+export async function handleAuthCallback(request: Request): Promise<NextResponse> {
+  const requestUrl = new URL(request.url);
+  const code = requestUrl.searchParams.get('code');
+  const next = requestUrl.searchParams.get('next') || '/';
+  const error = requestUrl.searchParams.get('error');
+
+  try {
+    if (error) {
+      throw new Error(`Authentication error: ${error}`);
+    }
+
+    if (!code) {
+      throw new Error('No authorization code provided');
+    }
+
+    await authService.exchangeAuthCode(code);
+    actionLogger.info('Successfully processed auth callback', { redirectTo: next });
+    return NextResponse.redirect(new URL(next, requestUrl.origin));
+
+  } catch (error) {
+    const errorObj = error instanceof Error ? error : new Error('Unknown error during authentication');
+    actionLogger.error('Auth callback error:', errorObj);
+    
+    return NextResponse.redirect(
+      new URL(
+        `/auth/error?error=${encodeURIComponent(errorObj.message)}`, 
+        requestUrl.origin
+      )
+    );
+  }
+}
 
 const getBaseUrl = () => {
   if (typeof window !== 'undefined') return ''; // browser should use relative url
@@ -33,7 +64,7 @@ export const signIn: FormAction = async (formData) => {
   }
 
   try {
-    await signInWithEmail({ email, password });
+    await authService.signInWithEmail({ email, password });
     redirect('/dashboard');
     return { error: null };
   } catch (error) {
@@ -54,7 +85,7 @@ export const signUpAction: FormAction = async (formData) => {
   }
 
   try {
-    await signUp({ email, password, fullName });
+    await authService.signUp({ email, password, fullName });
     redirect('/auth/verify-email');
     return { error: null };
   } catch (error) {
@@ -67,7 +98,7 @@ export const signUpAction: FormAction = async (formData) => {
 
 export async function signOut() {
   try {
-    await serverSignOut();
+    await authService.signOut();
   } catch (error) {
     console.error('Sign out error:', error);
     throw error;
@@ -99,7 +130,7 @@ export const forgotPassword: FormAction = async (formData) => {
     const redirectUrl = new URL('/reset-password', getBaseUrl()).toString();
     
     // Send password reset email using the auth service
-    await resetPasswordService({ email, redirectTo: redirectUrl });
+    await authService.resetPassword({ email, redirectTo: redirectUrl });
 
     return { 
       success: true, 
@@ -140,7 +171,7 @@ export const resetPassword: FormAction = async (formData) => {
     const { password, token } = result.data;
     
     // Update the password using the auth service
-    await updatePassword({ password, token });
+    await authService.updatePassword({ password, token });
 
     return { 
       success: true, 

@@ -2,6 +2,7 @@
 
 import { createBrowserClient, createServerClient } from '@/lib/clients/supabase';
 import { cookies } from 'next/headers';
+import { logger } from '@/lib/logger/client.logger';
 import type { User, Session, AuthResponse } from '@supabase/supabase-js';
 
 type SignInCredentials = {
@@ -25,6 +26,8 @@ type UpdatePasswordParams = {
   token?: string; // Optional token for password reset flow
 };
 
+const authLogger = logger; // Using logger directly as child method is not available
+
 /**
  * Gets the current server session
  * @returns The current session or null if no session exists
@@ -32,13 +35,13 @@ type UpdatePasswordParams = {
 export async function getServerSession(): Promise<Session | null> {
   try {
     const cookieStore = cookies();
-    const accessToken = cookieStore.get('sb-access-token')?.value;
-    const supabase = createServerClient(accessToken);
+    const supabase = createServerClient(cookieStore);
     
     const { data: { session } } = await supabase.auth.getSession();
     return session;
-  } catch (error) {
-    console.error('Error getting server session:', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error : new Error('Unknown error');
+    authLogger.error('Error getting server session:', errorMessage);
     return null;
   }
 }
@@ -59,7 +62,7 @@ export async function resetPassword({
   });
   
   if (error) {
-    console.error('Password reset error:', error);
+    authLogger.error('Password reset error:', error);
     throw new Error(error.message);
   }
   
@@ -76,7 +79,8 @@ export async function updatePassword({
   password,
   token 
 }: UpdatePasswordParams): Promise<User> {
-  const supabase = token ? createServerClient() : createBrowserClient();
+  const cookieStore = cookies();
+  const supabase = token ? createServerClient(cookieStore) : createBrowserClient();
   
   try {
     // If token is provided, verify it first
@@ -101,9 +105,10 @@ export async function updatePassword({
     }
     
     return data.user;
-  } catch (error) {
-    console.error('Password update error:', error);
-    throw error instanceof Error ? error : new Error('Failed to update password');
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error : new Error('Unknown error');
+    authLogger.error('Password update error:', errorMessage);
+    throw errorMessage;
   }
 }
 
@@ -124,7 +129,7 @@ export async function signInWithEmail({
   });
 
   if (error) {
-    console.error('Sign in error:', error);
+    authLogger.error('Sign in error:', error);
     throw new Error(error.message);
   }
   
@@ -159,7 +164,7 @@ export async function signUp({
   });
 
   if (error) {
-    console.error('Sign up error:', error);
+    authLogger.error('Sign up error:', error);
     throw new Error(error.message);
   }
 
@@ -176,7 +181,7 @@ export async function signOut(): Promise<{ success: true }> {
   const { error } = await supabase.auth.signOut();
   
   if (error) {
-    console.error('Sign out error:', error);
+    authLogger.error('Sign out error:', error);
     throw new Error(error.message);
   }
   
@@ -193,7 +198,7 @@ export async function getSession(): Promise<Session | null> {
   const { data, error } = await supabase.auth.getSession();
   
   if (error) {
-    console.error('Get session error:', error);
+    authLogger.error('Get session error:', error);
     throw new Error(error.message);
   }
   
@@ -210,7 +215,7 @@ export async function getUser(): Promise<User | null> {
   const { data, error } = await supabase.auth.getUser();
   
   if (error) {
-    console.error('Get user error:', error);
+    authLogger.error('Get user error:', error);
     throw new Error(error.message);
   }
   
@@ -239,8 +244,45 @@ export async function requireUser(): Promise<User> {
   const user = await getCurrentUser();
   
   if (!user) {
-    throw new Error('Authentication required');
+    throw new Error('User not authenticated');
   }
   
   return user;
 }
+
+/**
+ * Exchanges an OAuth code for a session
+ * @param code The authorization code from the OAuth provider
+ * @returns Promise that resolves when the code exchange is complete
+ * @throws {Error} If the code exchange fails
+ */
+export async function exchangeAuthCode(code: string): Promise<void> {
+  try {
+    const cookieStore = cookies();
+    const supabase = createServerClient(cookieStore);
+    
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    
+    if (error) {
+      throw new Error(`Failed to exchange code for session: ${error.message}`);
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error : new Error('Unknown error during code exchange');
+    authLogger.error('Code exchange error:', errorMessage);
+    throw errorMessage;
+  }
+}
+
+// Export all service functions
+export const authService = {
+  resetPassword,
+  updatePassword,
+  signInWithEmail,
+  signUp,
+  signOut,
+  getSession,
+  getUser,
+  getCurrentUser,
+  requireUser,
+  exchangeAuthCode
+};
