@@ -18,7 +18,7 @@ const getEnvVars = () => {
     const error = new Error(
       'Missing Supabase environment variables. Please check your .env.local file.'
     );
-    logger.error('Missing Supabase environment variables', { message: error.message });
+    logger.error('Missing Supabase environment variables', error);
     throw error;
   }
 
@@ -67,8 +67,12 @@ const createSupabaseClient = (options?: {
 
     return client;
   } catch (error) {
-    const err = error instanceof Error ? error : new Error('Failed to create Supabase client');
-    logger.error('Failed to create Supabase client', { message: err.message });
+    const err = error instanceof Error 
+      ? error 
+      : new Error('Failed to create Supabase client');
+    
+    logger.error('Failed to create Supabase client', err);
+    
     throw err;
   }
 };
