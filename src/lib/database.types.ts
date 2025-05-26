@@ -15,22 +15,63 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+export type UserRole = 'user' | 'admin' | 'moderator';
+
 export interface Database {
   public: {
     Tables: {
-      // Add your table types here
-      // Example:
-      // profiles: {
-      //   Row: {
-      //     id: string
-      //     created_at: string
-      //     updated_at: string
-      //     username: string | null
-      //     full_name: string | null
-      //     avatar_url: string | null
-      //   }
-      //   Insert: {
-      //     id?: string
+      users: {
+        Row: {
+          id: string
+          email: string
+          full_name: string | null
+          avatar_url: string | null
+          role: UserRole
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          email: string
+          full_name?: string | null
+          avatar_url?: string | null
+          role?: UserRole
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          full_name?: string | null
+          avatar_url?: string | null
+          role?: UserRole
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      sessions: {
+        Row: {
+          id: string
+          user_id: string
+          expires_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          user_id: string
+          expires_at: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          expires_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
       //     created_at?: string
       //     updated_at?: string
       //     username?: string | null

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { createBrowserClient } from '@/lib/clients/supabase';
 import { getClientLogger } from '@/lib/logger/client.logger';
@@ -49,7 +49,7 @@ export function AuthSessionProvider({
   /**
    * Refreshes the current session from Supabase
    */
-  const refreshSession = useCallback(async () => {
+  const refreshSession = useCallback(async (): Promise<void> => {
     try {
       setIsLoading(true);
       setError(null);
@@ -69,11 +69,11 @@ export function AuthSessionProvider({
         userId: newSession?.user?.id 
       });
       
-      return newSession;
+      // Don't return anything to match the Promise<void> return type
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to refresh session');
       setError(error);
-      logger.error('Error refreshing session', { error });
+      logger.error('Error refreshing session: ' + error.message);
       throw error;
     } finally {
       setIsLoading(false);
@@ -88,7 +88,8 @@ export function AuthSessionProvider({
     // Initial session load if not provided
     if (!initialSession) {
       refreshSession().catch(err => {
-        logger.error('Failed to load initial session', { error: err });
+        const errorMessage = err instanceof Error ? err.message : String(err);
+      logger.error('Failed to load initial session: ' + errorMessage);
       });
     }
 
@@ -114,10 +115,7 @@ export function AuthSessionProvider({
         } catch (err) {
           const error = err instanceof Error ? err : new Error('Auth state change error');
           setError(error);
-          logger.error('Error handling auth state change', { 
-            message: error.message, 
-            context: { event: event as string } 
-          });
+          logger.error(`Error handling auth state change (${event}): ${error.message}`);
         } finally {
           setIsLoading(false);
         }

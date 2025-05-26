@@ -16,16 +16,36 @@ project-root/
 │   │   │   ├── register/page.tsx
 │   │   │   └── ...
 │   │   ├── (dashboard)/          # Route group for protected dashboard routes
-│   │   │   ├── overview/page.tsx
-│   │   │   ├── settings/page.tsx
-│   │   │   └── ...
+│   │   │   ├── overview/page.tsx   # Composes UI from features/dashboard-overview (or similar)
+│   │   │   ├── projects/           # Example of a more complex section with nested routes
+│   │   │   │   ├── [projectId]/    # Dynamic route for a specific project
+│   │   │   │   │   ├── edit/page.tsx # Page for editing a project, composes UI from features/projects
+│   │   │   │   │   ├── settings/page.tsx # Page for project-specific settings
+│   │   │   │   │   ├── page.tsx        # Detail page for a project, composes UI from features/projects
+│   │   │   │   │   └── layout.tsx      # Optional: Layout specific to viewing/editing a single project
+│   │   │   │   ├── new/page.tsx        # Page for creating a new project, composes UI from features/projects
+│   │   │   │   ├── page.tsx            # List page for projects, composes UI from features/projects
+│   │   │   │   ├── loading.tsx         # Loading UI for /dashboard/projects and its children
+│   │   │   │   └── error.tsx           # Error boundary for /dashboard/projects and its children
+│   │   │   ├── settings/             # Example of a settings section with sub-pages
+│   │   │   │   ├── account/page.tsx    # Composes UI from features/user-profile or features/settings
+│   │   │   │   ├── notifications/page.tsx
+│   │   │   │   ├── security/page.tsx
+│   │   │   │   ├── layout.tsx          # Layout for all /dashboard/settings/* routes
+│   │   │   │   └── page.tsx            # Main settings page, composes UI from features/settings
+│   │   │   ├── team/
+│   │   │   │   ├── [memberId]/page.tsx
+│   │   │   │   ├── invite/page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── layout.tsx              # Main dashboard layout (e.g., with sidebar, navbar)
+│   │   │   └── loading.tsx             # Optional: Loading UI for the entire dashboard
 │   │   ├── api/                  # API route handlers (webhooks, specific non-Next.js client needs)
 │   │   │   ├── health/route.ts
 │   │   │   ├── logs/client/route.ts
-│   │   │   └── [feature]/...
+│   │   │   └── [feature]/...     # e.g., api/projects/[projectId]/route.ts
 │   │   ├── layout.tsx            # Root layout
 │   │   ├── global-error.tsx      # Global error boundary
-│   │   └── ...
+│   │   └── ...                   # Other root-level files like page.tsx (homepage), not-found.tsx
 │   ├── features/                 # **CORE: Feature-based modules**
 │   │   ├── auth/                 # Auth Feature Module
 │   │   │   ├── components/       # UI components specific to auth

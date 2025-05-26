@@ -24,6 +24,7 @@ This document outlines the project's structure, adapted to leverage a modern Nex
 The `src/` directory is organized to support the Next.js App Router and a feature-driven architecture.
 
 *   **`src/app/`**: The **routing layer** for the Next.js App Router. Contains pages (`page.tsx`), layouts (`layout.tsx`), loading UIs, error boundaries, and route groups. Defines URL structure and composes UI from `src/features/` and `src/components/`.
+    The directory structure within `src/app/` should directly mirror the application's URL structure. For complex sections of the application, this will involve creating deeply nested subdirectories. Each route segment can have its own `page.tsx`, and optionally `layout.tsx`, `loading.tsx`, `error.tsx`, and `not-found.tsx` files to manage its specific UI, loading states, and error handling. This organization keeps routing concerns well-structured, even for applications with many sub-routes and dynamic segments.
     *   **Subdirectories:**
         *   `src/app/(auth)/`, `src/app/(dashboard)/`: Route groups for organizing routes.
         *   `src/app/api/`: Server-side API route handlers.
