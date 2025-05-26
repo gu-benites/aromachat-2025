@@ -5,8 +5,8 @@ import Link from 'next/link';
 
 type AuthLayoutProps = {
   children: ReactNode;
-  title: string;
-  description: string;
+  title?: string;
+  description?: string;
   footerText: string;
   footerLink: {
     href: string;
@@ -49,17 +49,19 @@ export function AuthLayout({
           </blockquote>
         </div>
       </div>
-      <div className="lg:p-8">
-        <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
-          <div className="flex flex-col space-y-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {title}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {description}
-            </p>
-          </div>
-          <div className="grid gap-6">
+      <div className="lg:p-8 w-full">
+        <div className="mx-auto flex w-full flex-col justify-center space-y-6">
+          {title && description && (
+            <div className="flex flex-col space-y-2 text-center">
+              <h1 className="text-2xl font-semibold tracking-tight">
+                {title}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {description}
+              </p>
+            </div>
+          )}
+          <div className="w-full">
             {children}
           </div>
           <p className="px-8 text-center text-sm text-muted-foreground">
