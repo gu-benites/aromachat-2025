@@ -1,7 +1,7 @@
-import { LoginForm } from '@/features/auth/components/auth-forms/login-form';
-import { AuthLayout } from '@/features/auth/components/auth-layout';
+import { LoginForm } from './auth-forms/login-form';
+import { AuthLayout } from './auth-layout';
 
-export default function LoginPage() {
+export function LoginPage() {
   return (
     <AuthLayout
       title="Welcome back"
