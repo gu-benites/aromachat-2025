@@ -206,6 +206,7 @@ export async function GET() {
    - Invalid credentials
    - Expired sessions
    - CSRF validation failures
+   - OAuth callback errors
 
 2. **Authorization Errors**
    - Insufficient permissions
@@ -281,6 +282,7 @@ All error responses follow the format:
 # Required
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+NEXT_PUBLIC_SITE_URL=http://localhost:3000  # Required for OAuth callbacks
 
 # Security Headers
 CONTENT_SECURITY_POLICY="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'"
@@ -292,7 +294,17 @@ X_XSS_PROTECTION="1; mode=block"
 # Rate Limiting
 AUTH_RATE_LIMIT=5
 AUTH_RATE_WINDOW_MS=60000
+
+# Session Configuration
+NEXT_PUBLIC_SUPABASE_COOKIE_NAME=aroma_auth_token
+NEXT_PUBLIC_SUPABASE_COOKIE_LIFETIME=3600  # 1 hour
 ```
+
+### Security Notes
+- Never commit `.env` files to version control
+- Use environment variables for all sensitive configuration
+- Ensure proper CORS configuration in your Supabase project
+- Set up proper redirect URLs in your Supabase dashboard
 
 ### Dependencies
 

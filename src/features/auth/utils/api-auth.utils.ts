@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
-import { Database } from '@/lib/database.types';
+import { createServerClient } from '@/lib/clients/supabase';
 
 /**
  * Type representing an authenticated user in the application
@@ -22,19 +21,13 @@ export async function getAuthenticatedUser(): Promise<{
 }> {
   try {
     const cookieStore = cookies();
-    const supabase = createServerClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set() {},
-          remove() {},
-        },
-      }
-    );
+    const supabase = createServerClient();
+    
+    // Set the session from cookies if available
+    const accessToken = cookieStore.get('sb-access-token')?.value;
+    if (accessToken) {
+      await supabase.auth.setSession({ access_token: accessToken, refresh_token: '' });
+    }
 
     const { data: { session }, error } = await supabase.auth.getSession();
     
@@ -76,20 +69,14 @@ export async function getAuthenticatedUser(): Promise<{
  */
 export async function getServerSession() {
   try {
+    const supabase = createServerClient();
     const cookieStore = cookies();
-    const supabase = createServerClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set() {},
-          remove() {},
-        },
-      }
-    );
+    
+    // Set the session from cookies if available
+    const accessToken = cookieStore.get('sb-access-token')?.value;
+    if (accessToken) {
+      await supabase.auth.setSession({ access_token: accessToken, refresh_token: '' });
+    }
 
     const { data: { session }, error } = await supabase.auth.getSession();
     

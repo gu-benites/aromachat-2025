@@ -6,9 +6,9 @@ import { toast } from 'sonner';
 import { 
   signInWithEmail, 
   signOut, 
-  updatePassword 
+  updatePassword,
+  signUp 
 } from '../services/auth.service';
-import { signUpWithEmail } from '../services/server-auth.service';
 import { 
   forgotPassword as forgotPasswordAction,
   resetPassword as resetPasswordAction 
@@ -38,7 +38,7 @@ export function useSignUp() {
   
   return useMutation({
     mutationFn: async ({ email, password, fullName }: { email: string; password: string; fullName: string }) => {
-      return signUpWithEmail({ email, password, fullName });
+      return signUp({ email, password, fullName });
     },
     onSuccess: () => {
       toast.success('Account created successfully! Please check your email to verify your account.');
