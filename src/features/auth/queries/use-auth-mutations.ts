@@ -4,6 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { authService } from '../services/auth.service';
+import { UnconfirmedEmailError } from '../errors/auth.errors';
 
 /**
  * Initiates the password reset process for a user
@@ -40,15 +41,52 @@ const resetPasswordAction = async (token: string, password: string): Promise<{ s
 
 
 /**
- * Hook for handling user sign-in
- * @returns Mutation object with signIn function and status
+ * Hook for handling user sign-in with email and password
+ * 
+ * @remarks
+ * This mutation handles the sign-in process, including error handling for various scenarios
+ * such as unconfirmed emails, invalid credentials, and rate limiting.
+ * 
+ * @example
+ * ```tsx
+ * const { mutate: signIn, isPending } = useSignIn();
+ * signIn({ email: 'user@example.com', password: 'securepassword' });
+ * ```
+ * 
+ * @returns An object containing:
+ * - `mutate`: Function to initiate the sign-in
+ * - `isPending`: Boolean indicating if the sign-in is in progress
+ * - `error`: Error object if the sign-in failed
+ */
+/**
+ * Hook for handling user sign-in with email and password
+ * 
+ * @remarks
+ * This mutation handles the sign-in process, including error handling for various scenarios
+ * such as unconfirmed emails, invalid credentials, and rate limiting.
+ * 
+ * @example
+ * ```tsx
+ * const { mutate: signIn, isPending } = useSignIn();
+ * signIn({ email: 'user@example.com', password: 'securepassword' });
+ * ```
+ * 
+ * @returns An object containing:
+ * - `mutate`: Function to initiate the sign-in
+ * - `isPending`: Boolean indicating if the sign-in is in progress
+ * - `error`: Error object if the sign-in failed
  */
 export function useSignIn() {
   const router = useRouter();
   
   return useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      return authService.signInWithPassword(email, password);
+      try {
+        return await authService.signInWithPassword(email, password);
+      } catch (error) {
+        console.log('Auth service error:', error);
+        throw error; // Re-throw to be handled by onError
+      }
     },
     onSuccess: () => {
       toast.success('Signed in successfully');
@@ -56,7 +94,27 @@ export function useSignIn() {
       router.refresh();
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to sign in');
+      const errorMessage = error?.message?.toLowerCase() || '';
+      const isUnconfirmed = error instanceof UnconfirmedEmailError || 
+                          errorMessage.includes('unconfirmed') || 
+                          errorMessage.includes('email not confirmed') ||
+                          errorMessage.includes('verify your email');
+      
+      console.log('useSignIn onError:', { 
+        error, 
+        isUnconfirmed,
+        message: error?.message,
+        name: error?.name,
+        constructor: error?.constructor?.name
+      });
+      
+      if (isUnconfirmed) {
+        // Re-throw to allow component-level handling
+        throw error;
+      }
+      
+      // Only show toast for non-unconfirmed errors
+      toast.error(error?.message || 'Failed to sign in');
     },
   });
 }
@@ -143,6 +201,24 @@ export function useUpdatePassword() {
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to update password');
+    },
+  });
+}
+
+/**
+ * Hook for resending email confirmation
+ * @returns Mutation object with resendConfirmation function and status
+ */
+export function useResendConfirmationEmail() {
+  return useMutation({
+    mutationFn: async (email: string) => {
+      return authService.resendConfirmationEmail(email);
+    },
+    onSuccess: () => {
+      toast.success('Confirmation email resent successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to resend confirmation email');
     },
   });
 }

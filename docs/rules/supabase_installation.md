@@ -281,3 +281,33 @@ export default async function PrivatePage() {
 
   return <p>Hello {data.user.email}</p>
 }
+
+#### Authentication Methods
+
+The following table lists all authentication methods available in the `supabase-js` library, as documented on the [JavaScript API Reference | Supabase Docs](https://supabase.com/docs/reference/javascript/auth-api) page. Each method is accompanied by a brief description to help developers understand its purpose and usage.
+
+| **Authentication Method**     | **Description** |
+|------------------------------|-----------------|
+| `signUp`                     | Creates a new user; requires email and password; user may need to verify email before logging in; can disable email confirmation in dashboard. |
+| `signInAnonymously`          | Creates an anonymous user; recommended to use captcha to prevent abuse; optional captcha token in options. |
+| `signInWithPassword`         | Logs in existing user with email/phone and password; requires either email/password or phone/password. |
+| `signInWithIdToken`          | Signs in with OIDC ID token; provider must be enabled and configured; requires provider and token. |
+| `signInWithOtp`              | Logs in user using magic link or OTP; requires email or phone; can configure for magic link or OTP; supports redirect URLs via `SITE_URL`. |
+| `signInWithOAuth`            | Logs in via third-party provider; supports PKCE flow; requires provider specification; see [Configure Third-Party Providers](https://supabase.com/docs/guides/auth#configure-third-party-providers). |
+| `signInWithSSO`              | Attempts SSO with enterprise Identity Provider; requires established connection; can use domain or `providerId`; redirects to identity provider; see [Managing SAML 2.0 Connections](https://supabase.com/docs/guides/auth/sso/auth-sso-saml#managing-saml-20-connections) and [Supabase SSO CLI](https://supabase.com/docs/reference/cli/supabase-sso). |
+| `signOut`                    | Signs out user, removes from browser session, triggers `SIGNED_OUT` event; requires user to be signed in; uses global scope by default. |
+| `resetPasswordForEmail`      | Sends password reset request to email; supports PKCE flow; requires email and optional `redirectTo`; see [Redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls#use-wildcards-in-redirect-urls). |
+| `verifyOtp`                  | Verifies and logs in user with OTP or `TokenHash`; supports types like `sms`, `phone_change`, `email`, `recovery`, `invite`, `email_change`; see [Auth Email Templates](https://supabase.com/docs/guides/auth/auth-email-templates). |
+| `getSession`                 | Retrieves current session, refreshes if necessary; contains signed JWT and unencoded session data; see [Get User](https://supabase.com/docs/reference/javascript/auth-getuser). |
+| `refreshSession`            | Returns new session regardless of expiry; optional current session parameter; requires valid refresh token. |
+| `getUser`                    | Gets current user details with network request; validates JWT on server; optional JWT parameter; recommended for server-side authorization. |
+| `updateUser`                 | Updates user data for logged-in user; requires attributes like email; can disable secure email change in dashboard. |
+| `getUserIdentities`          | Retrieves all identities linked to user; requires user to be signed in. |
+| `linkIdentity`               | Links OAuth identity to existing user; requires Enable Manual Linking; user must be signed in; supports PKCE flow. |
+| `unlinkIdentity`             | Unlinks identity from user; requires Enable Manual Linking; user must have at least 2 identities; identity must belong to user. |
+| `reauthenticate`             | Sends reauthentication OTP to email/phone; requires user to be signed in; used with `updateUser` for password changes; see dashboard for secure password change settings. |
+| `resend`                     | Resends signup, email change, or phone change OTP; requires initial request; optional `emailRedirectTo` for email links. |
+| `setSession`                 | Sets session using `access_token` and `refresh_token`; emits `SIGNED_IN` event on success; requires valid tokens. |
+| `exchangeCodeForSession`     | Logs in user by exchanging Auth Code from PKCE flow; requires `authCode`; used when `flowType` is `pkce`. |
+| `startAutoRefresh`           | Starts auto-refresh process for session in non-browser environments; checks every few seconds; see React Native example for usage. |
+| `stopAutoRefresh`            | Stops auto-refresh process in non-browser environments; called when app is out of focus; see React Native example for usage. |

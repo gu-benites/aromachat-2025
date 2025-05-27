@@ -80,10 +80,35 @@ export class RateLimitError extends AuthError {
   }
 }
 
+/**
+ * Error thrown when a user attempts to sign in with an unverified email
+ */
 export class EmailNotVerifiedError extends AuthError {
-  constructor() {
-    super('Email not verified', 'EMAIL_NOT_VERIFIED', 403);
+  constructor(message: string = 'Please verify your email address before signing in') {
+    super(message, 'EMAIL_NOT_VERIFIED', 403, {
+      action: 'resend-verification',
+      message: 'A verification email has been sent to your email address'
+    });
     this.name = 'EmailNotVerifiedError';
+  }
+}
+
+/**
+ * Error thrown when a user attempts to sign in with an unconfirmed email
+ */
+export class UnconfirmedEmailError extends AuthError {
+  constructor(email: string) {
+    super(
+      'Your email address has not been confirmed yet', 
+      'EMAIL_UNCONFIRMED', 
+      403,
+      { 
+        email,
+        action: 'resend-confirmation',
+        message: 'Please check your email for a confirmation link or request a new one'
+      }
+    );
+    this.name = 'UnconfirmedEmailError';
   }
 }
 
@@ -102,5 +127,6 @@ export type AuthErrorCode =
   | 'INVALID_TOKEN'
   | 'RATE_LIMIT_EXCEEDED'
   | 'EMAIL_NOT_VERIFIED'
+  | 'EMAIL_UNCONFIRMED'
   | 'SESSION_EXPIRED'
   | 'UNKNOWN_ERROR';

@@ -4,36 +4,20 @@ import { getClientLogger } from '@/lib/logger/client.logger';
 import { 
   AuthError,
   EmailAlreadyInUseError, 
+  EmailNotVerifiedError, 
   InvalidCredentialsError, 
+  RateLimitError,
   WeakPasswordError,
-  EmailNotVerifiedError,
-  RateLimitError
+  UnconfirmedEmailError
 } from '../errors/auth.errors';
+import { AuthError as SupabaseAuthError } from '@supabase/supabase-js';
 
 /**
- * Extended error type for API errors with additional metadata
- * @extends Error
+ * Type guard to check if an error is an AuthApiError from Supabase
  */
-type ApiError = Error & {
-  /** HTTP status code if applicable */
-  status?: number;
-  /** Error code for programmatic handling */
-  code?: string;
-  /** Email associated with the error, if any */
-  email?: string;
-  /** Suggested time to wait before retrying (in seconds) */
-  retryAfter?: number;
-  /** Human-readable error message */
-  message: string;
-};
-
-/**
- * Type guard to check if an error is an ApiError
- * @param error - The error to check
- * @returns True if the error is an ApiError
- */
-function isApiError(error: unknown): error is ApiError {
-  return error instanceof Error;
+function isAuthApiError(error: unknown): error is SupabaseAuthError {
+  if (!error || typeof error !== 'object') return false;
+  return 'status' in error && 'code' in error;
 }
 
 const logger = getClientLogger('auth:service');
@@ -116,15 +100,66 @@ export class AuthService {
       });
 
       if (error) {
+        // Log the raw error for debugging
+        const errorDetails = new Error(error.message);
+        if (isAuthApiError(error)) {
+          (errorDetails as any).code = error.code;
+          (errorDetails as any).status = error.status;
+        }
+        
+        // Handle unconfirmed/not verified emails
+        const errorMessage = error.message.toLowerCase();
+        const isUnconfirmed = errorMessage.includes('email not confirmed') || 
+                           errorMessage.includes('unconfirmed') ||
+                           (error as any).code === 'email_not_confirmed';
+        
+        // Create a properly typed error object for logging
+        const logError = {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+          isUnconfirmed,
+          originalError: {
+            message: error.message,
+            code: (error as any).code,
+            status: (error as any).status
+          }
+        };
+        
+        logger.error('Supabase auth error', logError);
+        
+        if (isUnconfirmed) {
+          const unconfirmedError = new UnconfirmedEmailError(email);
+          logger.debug('Throwing UnconfirmedEmailError', { 
+            message: unconfirmedError.message,
+            email,
+            originalError: error 
+          });
+          throw unconfirmedError;
+        }
+        
+        // Let handleAuthError handle other cases
         this.handleAuthError(error);
       }
 
       logger.info('User sign in successful', { userId: data.user?.id });
       return data;
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      logger.error('User sign in failed', err, { email });
-      throw error; // Re-throw to be handled by the caller
+      // If it's already an UnconfirmedEmailError, re-throw it directly
+      if (error instanceof UnconfirmedEmailError) {
+        throw error;
+      }
+      
+      // For other errors, log and re-throw
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorToLog = new Error(`User sign in failed: ${errorMessage}`);
+      
+      if (error instanceof Error) {
+        errorToLog.stack = error.stack;
+      }
+      
+      logger.error('User sign in failed', errorToLog);
+      throw error;
     }
   }
 
@@ -218,53 +253,127 @@ export class AuthService {
   }
 
   /**
-   * Handle authentication errors and throw appropriate custom errors
+   * Resends the email confirmation to the specified email address
+   * @param email - The email address to resend the confirmation to
+   * @returns Promise that resolves when the email is sent
+   * @throws {AuthError} If there's an error sending the confirmation email
+   */
+  public async resendConfirmationEmail(email: string): Promise<void> {
+    try {
+      logger.info('Resending confirmation email', { email });
+      
+      const { error } = await this.supabase.auth.resend({
+        email,
+        type: 'signup',
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/confirm`,
+        },
+      });
+
+      if (error) {
+        this.handleAuthError(error);
+      }
+
+      logger.info('Confirmation email resent successfully', { email });
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to resend confirmation email', err, { email });
+      throw error; // Re-throw to be handled by the caller
+    }
+  }
+
+  /**
+   * Handles authentication errors from Supabase and maps them to application-specific error types
+   * 
+   * @remarks
+   * This method processes errors from Supabase auth operations and converts them into
+   * more specific application error types. It handles various error scenarios including:
+   * - Invalid credentials
+   * - Unconfirmed email addresses
+   * - Rate limiting
+   * - Weak passwords
+   * - Email already in use
+   * 
+   * @param error - The error object from Supabase or other auth operations
+   * @throws {InvalidCredentialsError} When login credentials are invalid
+   * @throws {EmailNotVerifiedError} When the email hasn't been verified
+   * @throws {RateLimitError} When too many requests are made
+   * @throws {WeakPasswordError} When password doesn't meet requirements
+   * @throws {EmailAlreadyInUseError} When trying to sign up with an existing email
+   * @throws {AuthError} For all other authentication errors
    */
   private handleAuthError(error: unknown): never {
-    const err = error instanceof Error ? error : new Error(String(error));
+    // Create a safe error object
+    const safeError = error instanceof Error 
+      ? error 
+      : new Error(String(error));
     
-    // Log the error with any additional context
-    logger.error('Auth error occurred', err);
+    // Log the error safely
+    logger.error('Auth error occurred', { 
+      name: safeError.name,
+      message: safeError.message,
+      stack: safeError.stack 
+    });
 
-    // If it's not an API error, throw a generic auth error
-    if (!isApiError(error)) {
-      throw new AuthError(
-        err.message,
-        'AUTH_ERROR',
-        500
-      );
+    // Check for unconfirmed email in the error message
+    const errorMessage = safeError.message.toLowerCase();
+    if (errorMessage.includes('unconfirmed') || 
+        errorMessage.includes('email not confirmed') ||
+        errorMessage.includes('verify your email')) {
+      const email = (error as any).email || '';
+      throw new UnconfirmedEmailError(email);
     }
 
-    // Map Supabase auth errors to our custom errors
-    if (typeof error.status === 'number') {
-      switch (error.status) {
-        case 400:
-          if (error.message?.includes('password')) {
-            throw new WeakPasswordError();
-          }
-          break;
+    // Handle Supabase Auth API errors
+    if (isAuthApiError(error)) {
+      const { code, status } = error;
+      
+      // Handle specific error codes
+      switch (code) {
+        case 'email_not_confirmed': {
+          const email = (error as any).email || '';
+          throw new UnconfirmedEmailError(email);
+        }
+        case 'signup_disabled':
+        case 'email_provider_disabled':
+          throw new EmailNotVerifiedError();
+        case 'invalid_credentials':
+          throw new InvalidCredentialsError();
+        case 'weak_password':
+          throw new WeakPasswordError();
+        case 'email_exists':
+        case 'user_already_exists': {
+          const userEmail = 'email' in error ? String(error.email) : '';
+          throw new EmailAlreadyInUseError(userEmail);
+        }
+        case 'over_request_rate_limit':
+        case 'over_email_send_rate_limit':
+          throw new RateLimitError(60);
+      }
+
+      // Handle by status code if code wasn't matched
+      switch (status) {
         case 401:
-          if (error.message?.includes('Invalid login credentials')) {
-            throw new InvalidCredentialsError();
-          }
-          break;
-        case 409:
-          throw new EmailAlreadyInUseError(error.email || '');
+          throw new InvalidCredentialsError();
+        case 403:
         case 422:
-          if (error.message?.includes('email not confirmed')) {
-            throw new EmailNotVerifiedError();
+          // These statuses might indicate unconfirmed email
+          if (error.message?.toLowerCase().includes('email')) {
+            const email = (error as any).email || '';
+            throw new UnconfirmedEmailError(email);
           }
           break;
         case 429:
-          throw new RateLimitError(error.retryAfter);
+          throw new RateLimitError(60);
       }
     }
 
-    // Default to generic auth error with the original error's details
+    // Default to generic auth error
+    const errorObj = error as { message?: string; code?: string | number; status?: number };
     throw new AuthError(
-      error.message || 'An authentication error occurred',
-      error.code || 'AUTH_ERROR',
-      typeof error.status === 'number' ? error.status : 500
+      errorObj?.message || 'An authentication error occurred',
+      typeof errorObj?.code === 'string' ? errorObj.code : 'AUTH_ERROR',
+      typeof errorObj?.status === 'number' ? errorObj.status : 500
     );
   }
 }
@@ -279,7 +388,8 @@ export const {
   signOut,
   getSession,
   getUser,
-  updatePassword
+  updatePassword,
+  resendConfirmationEmail,
 } = authService;
 
 export { authService };
