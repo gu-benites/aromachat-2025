@@ -1,333 +1,240 @@
-'use server';
+import { createClient } from '@/lib/clients/supabase/client';
+import { SignUpFormData } from '../schemas/auth.schemas';
+import { getClientLogger } from '@/lib/logger/client.logger';
+import { 
+  AuthError,
+  EmailAlreadyInUseError, 
+  InvalidCredentialsError, 
+  WeakPasswordError,
+  EmailNotVerifiedError,
+  RateLimitError
+} from '../errors/auth.errors';
 
-import { createBrowserClient, createServerClient } from '@/lib/clients/supabase';
-import { cookies } from 'next/headers';
-import { logger } from '@/lib/logger/client.logger';
-import type { User, Session, AuthResponse } from '@supabase/supabase-js';
-
-type SignInCredentials = {
-  email: string;
-  password: string;
+type ApiError = Error & {
+  status?: number;
+  code?: string;
+  email?: string;
+  retryAfter?: number;
+  message: string;
 };
 
-type SignUpParams = {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-};
-
-type ResetPasswordParams = {
-  email: string;
-  redirectTo: string;
-};
-
-type UpdatePasswordParams = {
-  password: string;
-  token?: string; // Optional token for password reset flow
-};
-
-const authLogger = logger; // Using logger directly as child method is not available
-
-/**
- * Gets the current server session
- * @returns The current session or null if no session exists
- */
-export async function getServerSession(): Promise<Session | null> {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(cookieStore);
-    
-    const { data: { session } } = await supabase.auth.getSession();
-    return session;
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error : new Error('Unknown error');
-    authLogger.error('Error getting server session:', errorMessage);
-    return null;
-  }
+function isApiError(error: unknown): error is ApiError {
+  return error instanceof Error;
 }
 
-/**
- * Sends a password reset email to the specified email address
- * @param params Email and redirect URL
- * @returns Success status
- * @throws {Error} If the operation fails
- */
-export async function resetPassword({ 
-  email, 
-  redirectTo 
-}: ResetPasswordParams): Promise<{ success: true }> {
-  const supabase = createBrowserClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo,
-  });
-  
-  if (error) {
-    authLogger.error('Password reset error:', error);
-    throw new Error(error.message);
-  }
-  
-  return { success: true };
-}
+const logger = getClientLogger('auth:service');
 
 /**
- * Updates the current user's password
- * @param params New password and optional token
- * @returns Updated user data
- * @throws {Error} If the operation fails
+ * Service for handling authentication operations
  */
-export async function updatePassword({ 
-  password,
-  token 
-}: UpdatePasswordParams): Promise<User> {
-  const cookieStore = cookies();
-  const supabase = token ? createServerClient(cookieStore) : createBrowserClient();
-  
-  try {
-    // If token is provided, verify it first
-    if (token) {
-      const { data: { user }, error: verifyError } = await supabase.auth.verifyOtp({
-        token_hash: token,
-        type: 'recovery',
+export class AuthService {
+  private static instance: AuthService;
+  private supabase = createClient();
+
+  private constructor() {}
+
+  public static getInstance(): AuthService {
+    if (!AuthService.instance) {
+      AuthService.instance = new AuthService();
+    }
+    return AuthService.instance;
+  }
+
+  /**
+   * Register a new user
+   */
+  public async signUp({ email, password, firstName, lastName }: SignUpFormData) {
+    try {
+      logger.info('Attempting user registration', { email });
+      
+      const { data, error } = await this.supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+          },
+          emailRedirectTo: `${window.location.origin}/auth/confirm`,
+        },
       });
 
-      if (verifyError || !user) {
-        throw new Error(verifyError?.message || 'Invalid or expired reset token');
+      if (error) {
+        this.handleAuthError(error);
       }
+
+      logger.info('User registration successful', { userId: data.user?.id });
+      return data;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('User registration failed', err, { email });
+      throw error; // Re-throw to be handled by the caller
     }
-    
-    // Update the password
-    const { data, error } = await supabase.auth.updateUser({
-      password,
-    });
-    
-    if (error || !data.user) {
-      throw new Error(error?.message || 'Failed to update password');
-    }
-    
-    return data.user;
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error : new Error('Unknown error');
-    authLogger.error('Password update error:', errorMessage);
-    throw errorMessage;
   }
-}
 
-/**
- * Signs in a user with email and password
- * @param credentials User credentials
- * @returns Authentication response with session data
- * @throws {Error} If authentication fails
- */
-export async function signInWithEmail({ 
-  email, 
-  password 
-}: SignInCredentials): Promise<AuthResponse> {
-  const supabase = createBrowserClient();
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (error) {
-    authLogger.error('Sign in error:', error);
-    throw new Error(error.message);
-  }
-  
-  if (!data.session) {
-    throw new Error('No session returned after sign in');
-  }
-  
-  return { data, error: null };
-}
-
-/**
- * Creates a new user account with email and password
- * @param params User registration data
- * @returns Authentication response with user data
- * @throws {Error} If registration fails
- */
-export async function signUp({ 
-  email, 
-  password, 
-  firstName,
-  lastName
-}: SignUpParams): Promise<AuthResponse> {
-  try {
-    const supabase = createBrowserClient();
-    
-    // First, sign up the user
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          first_name: firstName,
-          last_name: lastName,
-          full_name: `${firstName} ${lastName}`.trim(),
-          email_verified: false,
-        },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
-      },
-    });
-
-    if (error) {
-      // Map common Supabase errors to more user-friendly messages
-      const errorMessage = (() => {
-        if (error.message.includes('already registered')) {
-          return 'This email is already registered. Please sign in or use a different email.';
-        } else if (error.message.includes('password')) {
-          return 'Invalid password. Please ensure it meets the requirements.';
-        } else if (error.message.includes('email')) {
-          return 'Please enter a valid email address.';
-        }
-        return error.message || 'Failed to create account';
-      })();
+  /**
+   * Sign in with email and password
+   */
+  public async signInWithEmail(email: string, password: string) {
+    try {
+      logger.info('Attempting user sign in', { email });
       
-      const errorObj = new Error(errorMessage);
-      authLogger.error('Sign up error:', errorObj);
-      throw errorObj;
+      const { data, error } = await this.supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        this.handleAuthError(error);
+      }
+
+      logger.info('User sign in successful', { userId: data.user?.id });
+      return data;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('User sign in failed', err, { email });
+      throw error; // Re-throw to be handled by the caller
+    }
+  }
+
+  /**
+   * Sign out the current user
+   */
+  public async signOut() {
+    try {
+      logger.info('Attempting user sign out');
+      
+      const { error } = await this.supabase.auth.signOut();
+      
+      if (error) {
+        this.handleAuthError(error);
+      }
+
+      logger.info('User signed out successfully');
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('User sign out failed', err);
+      throw error; // Re-throw to be handled by the caller
+    }
+  }
+
+  /**
+   * Get the current session
+   */
+  public async getSession() {
+    try {
+      logger.debug('Fetching current session');
+      
+      const { data, error } = await this.supabase.auth.getSession();
+      
+      if (error) {
+        this.handleAuthError(error);
+      }
+
+      return data.session;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to get session', err);
+      throw error; // Re-throw to be handled by the caller
+    }
+  }
+
+  /**
+   * Get the current user
+   */
+  public async getUser() {
+    try {
+      logger.debug('Fetching current user');
+      
+      const { data, error } = await this.supabase.auth.getUser();
+      
+      if (error) {
+        this.handleAuthError(error);
+      }
+
+      return data.user;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to get user', err);
+      throw error; // Re-throw to be handled by the caller
+    }
+  }
+
+  /**
+   * Update user password
+   */
+  public async updatePassword(newPassword: string) {
+    try {
+      logger.info('Attempting to update password');
+      
+      const { data, error } = await this.supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) {
+        this.handleAuthError(error);
+      }
+
+      logger.info('Password updated successfully');
+      return data;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to update password', err);
+      throw error; // Re-throw to be handled by the caller
+    }
+  }
+
+  /**
+   * Handle authentication errors and throw appropriate custom errors
+   */
+  private handleAuthError(error: unknown): never {
+    const err = error instanceof Error ? error : new Error(String(error));
+    
+    // Log the error with any additional context
+    logger.error('Auth error occurred', err);
+
+    // If it's not an API error, throw a generic auth error
+    if (!isApiError(error)) {
+      throw new AuthError(
+        err.message,
+        'AUTH_ERROR',
+        500
+      );
     }
 
-    // If we have a user, update their profile with additional data
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: data.user.id,
-          first_name: firstName,
-          last_name: lastName,
-          full_name: `${firstName} ${lastName}`.trim(),
-          email: data.user.email,
-          updated_at: new Date().toISOString(),
-        });
-
-      if (profileError) {
-        authLogger.error('Error updating user profile:', profileError);
-        // Don't fail the signup if profile update fails
+    // Map Supabase auth errors to our custom errors
+    if (typeof error.status === 'number') {
+      switch (error.status) {
+        case 400:
+          if (error.message?.includes('password')) {
+            throw new WeakPasswordError();
+          }
+          break;
+        case 401:
+          if (error.message?.includes('Invalid login credentials')) {
+            throw new InvalidCredentialsError();
+          }
+          break;
+        case 409:
+          throw new EmailAlreadyInUseError(error.email || '');
+        case 422:
+          if (error.message?.includes('email not confirmed')) {
+            throw new EmailNotVerifiedError();
+          }
+          break;
+        case 429:
+          throw new RateLimitError(error.retryAfter);
       }
     }
 
-    return { data, error: null };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error : new Error('Unknown error during sign up');
-    authLogger.error('Sign up error:', errorMessage);
-    throw errorMessage;
+    // Default to generic auth error with the original error's details
+    throw new AuthError(
+      error.message || 'An authentication error occurred',
+      error.code || 'AUTH_ERROR',
+      typeof error.status === 'number' ? error.status : 500
+    );
   }
 }
 
-/**
- * Signs out the current user
- * @returns Success status
- * @throws {Error} If sign out fails
- */
-export async function signOut(): Promise<{ success: true }> {
-  const supabase = createBrowserClient();
-  const { error } = await supabase.auth.signOut();
-  
-  if (error) {
-    authLogger.error('Sign out error:', error);
-    throw new Error(error.message);
-  }
-  
-  return { success: true };
-}
-
-/**
- * Gets the current session
- * @returns The current session or null if no session exists
- * @throws {Error} If the operation fails
- */
-export async function getSession(): Promise<Session | null> {
-  const supabase = createBrowserClient();
-  const { data, error } = await supabase.auth.getSession();
-  
-  if (error) {
-    authLogger.error('Get session error:', error);
-    throw new Error(error.message);
-  }
-  
-  return data.session;
-}
-
-/**
- * Gets the current authenticated user
- * @returns The current user or null if not authenticated
- * @throws {Error} If the operation fails
- */
-export async function getUser(): Promise<User | null> {
-  const supabase = createBrowserClient();
-  const { data, error } = await supabase.auth.getUser();
-  
-  if (error) {
-    authLogger.error('Get user error:', error);
-    throw new Error(error.message);
-  }
-  
-  return data.user;
-}
-
-/**
- * Verifies if the current user is authenticated
- * @returns User data if authenticated, null otherwise
- */
-export async function getCurrentUser(): Promise<User | null> {
-  try {
-    const user = await getUser();
-    return user;
-  } catch (error) {
-    return null;
-  }
-}
-
-/**
- * Requires the user to be authenticated
- * @returns The authenticated user
- * @throws {Error} If the user is not authenticated
- */
-export async function requireUser(): Promise<User> {
-  const user = await getCurrentUser();
-  
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-  
-  return user;
-}
-
-/**
- * Exchanges an OAuth code for a session
- * @param code The authorization code from the OAuth provider
- * @returns Promise that resolves when the code exchange is complete
- * @throws {Error} If the code exchange fails
- */
-export async function exchangeAuthCode(code: string): Promise<void> {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(cookieStore);
-    
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    
-    if (error) {
-      throw new Error(`Failed to exchange code for session: ${error.message}`);
-    }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error : new Error('Unknown error during code exchange');
-    authLogger.error('Code exchange error:', errorMessage);
-    throw errorMessage;
-  }
-}
-
-// Export all service functions
-export const authService = {
-  resetPassword,
-  updatePassword,
-  signInWithEmail,
-  signUp,
-  signOut,
-  getSession,
-  getUser,
-  getCurrentUser,
-  requireUser,
-  exchangeAuthCode
-};
+// Export a singleton instance
+export const authService = AuthService.getInstance();

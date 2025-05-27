@@ -15,12 +15,13 @@ This explains why client initializations (e.g., for Supabase, Hasura) belong in 
 
 ```
 // src/lib/clients/supabase.ts (Conceptual)
-import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
-// export const supabaseBrowserClient = createPagesBrowserClient(); // Example
-
-// src/lib/clients/hasura.ts (Conceptual)
-// import { GraphQLClient } from 'graphql-request';
-// export const hasuraClient = new GraphQLClient(process.env.HASURA_ENDPOINT);
+import { createBrowserClient } from '@supabase/ssr'
+export function createClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
 ```
 
 ## 2\. Feature Services (src/features/{feature\_name}/services/)
@@ -38,18 +39,7 @@ import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 
 ```
 // src/features/user-profile/services/user-profile.service.ts
-import { supabaseBrowserClient } from '@/lib/clients/supabase'; // Import shared client
-// import { hasuraClient } from '@/lib/clients/hasura';
-
-export async function fetchUserProfile(userId: string) {
-  // const { data, error } = await supabaseBrowserClient
-  //   .from('profiles')
-  //   .select('*')
-  //   .eq('id', userId)
-  //   .single();
-  // ...
-  // return data;
-}
+import { createBrowserClient } from '@/lib/clients/supabase'; // Import shared client
 ```
 ## Key Takeaway:
 * *   src/lib/clients/: **Provides the "tools"** (configured clients).

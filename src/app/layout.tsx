@@ -17,16 +17,18 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Session is now handled by the Providers component
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={cn('min-h-screen bg-background font-sans antialiased', inter.className)}>
         <QueryProvider>
-          <AuthSessionProvider>
+          <AuthSessionProvider initialSession={null}>
             <ThemeProvider
               attribute="class"
               defaultTheme="system"

@@ -1,123 +1,62 @@
-import { cookies } from 'next/headers';
-import { createServerClient } from '@/lib/clients/supabase';
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
-/**
- * Type representing an authenticated user in the application
- */
-export type AuthenticatedUser = {
-  id: string;
-  email: string;
-  full_name?: string;
-  // Add other user properties as needed
-};
+export async function updateSession(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({
+    request,
+  })
 
-/**
- * Retrieves the currently authenticated user on the server side
- * @returns An object containing the user and any error that occurred
- */
-export async function getAuthenticatedUser(): Promise<{
-  user: AuthenticatedUser | null;
-  error: Error | null;
-}> {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient();
-    
-    // Set the session from cookies if available
-    const accessToken = cookieStore.get('sb-access-token')?.value;
-    if (accessToken) {
-      await supabase.auth.setSession({ access_token: accessToken, refresh_token: '' });
-    }
-
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error || !session?.user) {
-      return { user: null, error: error || new Error('No active session') };
-    }
-
-    // Get additional user data if needed
-    const { data: userData, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
-
-    if (profileError) {
-      console.error('Error fetching user profile:', profileError);
-    }
-
-    return {
-      user: {
-        id: session.user.id,
-        email: session.user.email!,
-        full_name: userData?.full_name,
-        // Map other user properties as needed
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+          supabaseResponse = NextResponse.next({
+            request,
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
       },
-      error: null,
-    };
-  } catch (error) {
-    console.error('Auth error:', error);
-    return { 
-      user: null, 
-      error: error instanceof Error ? error : new Error('Authentication failed') 
-    };
-  }
-}
-
-/**
- * Server-side authentication utilities
- */
-export async function getServerSession() {
-  try {
-    const supabase = createServerClient();
-    const cookieStore = cookies();
-    
-    // Set the session from cookies if available
-    const accessToken = cookieStore.get('sb-access-token')?.value;
-    if (accessToken) {
-      await supabase.auth.setSession({ access_token: accessToken, refresh_token: '' });
     }
+  )
 
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error || !session) {
-      return { session: null, error: error || new Error('No session found') };
-    }
+  // Do not run code between createServerClient and
+  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
+  // issues with users being randomly logged out.
 
-    return { session, error: null };
-  } catch (error) {
-    console.error('Error getting server session:', error);
-    return { 
-      session: null, 
-      error: error instanceof Error ? error : new Error('Failed to get session') 
-    };
+  // IMPORTANT: DO NOT REMOVE auth.getUser()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  // Only protect the /private route
+  if (!user && request.nextUrl.pathname.startsWith('/private')) {
+    // no user, potentially respond by redirecting the user to the login page
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
   }
-}
 
-/**
- * Gets the current user from the session
- * @returns The current user or null if not authenticated
- */
-export async function getCurrentUser() {
-  const result = await getServerSession();
-  return result.session?.user || null;
-}
+  // IMPORTANT: You *must* return the supabaseResponse object as it is.
+  // If you're creating a new response object with NextResponse.next() make sure to:
+  // 1. Pass the request in it, like so:
+  //    const myNewResponse = NextResponse.next({ request })
+  // 2. Copy over the cookies, like so:
+  //    myNewResponse.cookies.setAll(supabaseResponse.cookies.getAll())
+  // 3. Change the myNewResponse object to fit your needs, but avoid changing
+  //    the cookies!
+  // 4. Finally:
+  //    return myNewResponse
+  // If this is not done, you may be causing the browser and server to go out
+  // of sync and terminate the user's session prematurely!
 
-/**
- * Ensures the user is authenticated
- * @throws {Error} If the user is not authenticated
- * @returns The authenticated user
- */
-export async function requireAuthenticatedUser() {
-  const { user, error } = await getAuthenticatedUser();
-  
-  if (error || !user) {
-    throw new Error(error?.message || 'User not authenticated');
-  }
-  
-  return user;
+  return supabaseResponse
 }
-
-// Client-side auth utilities (for use in client components)
-// This is a re-export of the main useAuth hook from @/features/auth/hooks/use-auth
-export { useAuth } from '@/features/auth/hooks/use-auth';
