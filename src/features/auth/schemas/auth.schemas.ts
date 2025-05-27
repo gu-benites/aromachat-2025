@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+/**
+ * Zod schema for user registration form validation.
+ * Validates email, password strength, and ensures password confirmation matches.
+ */
 export const signUpSchema = z
   .object({
     email: z.string().email('Please enter a valid email address'),
@@ -19,10 +23,17 @@ export const signUpSchema = z
     path: ['confirmPassword'],
   });
 
+/**
+ * Zod schema for user sign-in form validation.
+ * Validates email format and requires a non-empty password.
+ */
 export const signInSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(1, 'Password is required'),
 });
 
+/** Type representing the shape of registration form data */
 export type SignUpFormData = z.infer<typeof signUpSchema>;
+
+/** Type representing the shape of sign-in form data */
 export type SignInFormData = z.infer<typeof signInSchema>;

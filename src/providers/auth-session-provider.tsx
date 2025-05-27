@@ -46,6 +46,13 @@ export function AuthSessionProvider({
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
+/**
+ * Hook to access the auth context
+ * Must be used within an AuthSessionProvider
+ * 
+ * @throws {Error} If used outside of AuthSessionProvider
+ * @returns {AuthContextType} The auth context value
+ */
 export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {

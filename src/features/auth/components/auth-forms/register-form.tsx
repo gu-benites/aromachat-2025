@@ -23,6 +23,12 @@ import {
 
 const logger = getClientLogger('auth:register-form');
 
+/**
+ * Registration form component that handles user registration.
+ * Includes form validation, error handling, and success feedback.
+ * 
+ * @returns JSX.Element - The registration form component
+ */
 export function RegisterForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -40,14 +46,18 @@ export function RegisterForm() {
     },
   });
 
-  const onSubmit = async (values: SignUpFormData) => {
+  /**
+   * Handles form submission for user registration
+   * @param data - Form data containing user registration details
+   */
+  const onSubmit = async (data: SignUpFormData) => {
     if (isSubmitting) return;
     
     setIsSubmitting(true);
     
     try {
       logger.info('Submitting registration form');
-      await authService.signUp(values);
+      await authService.signUp(data);
       
       toast.success('Registration successful! Please check your email to verify your account.');
       router.push('/login');

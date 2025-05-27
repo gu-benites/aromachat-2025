@@ -1,97 +1,95 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
-import { Session, User as SupabaseUser } from '@supabase/supabase-js';
-import { useAuthSession } from '@/providers/auth-session-provider';
+import { User as SupabaseUser } from '@supabase/supabase-js';
+import { useSession, useUser } from '../queries/use-auth-queries';
+import { useSignOut } from '../queries/use-auth-mutations';
 import { useCurrentUserProfile } from '@/features/user-profile/queries/user-profile.queries';
 import { getClientLogger } from '@/lib/logger/client.logger';
 
 const logger = getClientLogger('useAuth');
 
+/**
+ * Extended user type that combines Supabase user with profile data
+ * @extends SupabaseUser
+ */
 export interface AuthenticatedUser extends SupabaseUser {
-  // Add any additional fields from your user profile
   username?: string;
   full_name?: string;
   avatar_url?: string;
-  // Add other profile fields as needed
 }
 
+/**
+ * Hook that provides authentication state and actions
+ * Combines session, user data, and profile data into a single hook
+ * 
+ * @returns Object containing auth state and actions
+ */
 export function useAuth() {
-  const { session, isLoading: isLoadingSession, error: sessionError } = useAuthSession();
-  const queryClient = useQueryClient();
   const router = useRouter();
-
-  // Fetch user profile if session exists
-  const {
-    data: userProfile,
-    isLoading: isLoadingProfile,
+  
+  // Use existing auth queries
+  const { data: session, isLoading: isLoadingSession, error: sessionError } = useSession();
+  const { data: user, isLoading: isLoadingUser, error: userError } = useUser();
+  
+  // Use existing mutation for sign out
+  const { mutateAsync: signOut } = useSignOut();
+  
+  // Fetch user profile if needed
+  const { 
+    data: userProfile, 
+    isLoading: isLoadingProfile, 
     error: profileError,
-    refetch: refetchProfile,
+    refetch: refetchProfile 
   } = useCurrentUserProfile();
 
   // Determine authentication state
   const hasActiveSession = !!session?.user && !sessionError;
   const isUserProfileLoaded = !!userProfile && !profileError;
   const isAuthenticated = hasActiveSession && isUserProfileLoaded;
-  const isLoadingAuth = isLoadingSession || (hasActiveSession && isLoadingProfile);
+  const isLoadingAuth = isLoadingSession || isLoadingUser || (hasActiveSession && isLoadingProfile);
+  const authError = sessionError || userError || profileError;
 
   // Combine session user with profile data
   const authUser = useMemo<AuthenticatedUser | null>(() => {
-    if (!isAuthenticated || !session?.user) return null;
+    if (!isAuthenticated || !user) return null;
     
     return {
-      ...session.user,
+      ...user,
       ...userProfile,
     };
-  }, [isAuthenticated, session?.user, userProfile]);
+  }, [isAuthenticated, user, userProfile]);
 
-  // Handle sign out
-  const logout = useCallback(async () => {
+  /**
+   * Handles user sign out
+   * Clears the session and redirects to home page
+   */
+  const handleSignOut = async () => {
     try {
-      const { supabase } = await import('@/lib/clients/supabase');
-      await supabase.auth.signOut();
-      
-      // Clear all queries from the cache
-      queryClient.clear();
-      
-      // Invalidate all queries
-      await queryClient.invalidateQueries();
-      
-      // Redirect to home page after sign out
+      await signOut();
       router.push('/');
-      router.refresh(); // Ensure the page refreshes to reflect auth state
+      router.refresh();
     } catch (error) {
-      logger.error('Error signing out:', { error });
+      logger.error('Error during sign out:', { error });
       throw error;
     }
-  }, [queryClient, router]);
-
-  // Handle profile refresh
-  const reloadUserProfile = useCallback(async () => {
-    try {
-      await refetchProfile();
-    } catch (error) {
-      logger.error('Error reloading user profile:', { error });
-      throw error;
-    }
-  }, [refetchProfile]);
+  };
 
   return {
     // Core auth state
     authUser,
     session,
     isAuthenticated,
-    isLoadingAuth,
-    authError: sessionError || profileError,
+    isLoading: isLoadingAuth,
+    error: authError,
     
     // Derived states
     hasActiveSession,
     isUserProfileLoaded,
     
     // Actions
-    logout,
-    reloadUserProfile,
+    signOut: handleSignOut,
+    reloadUserProfile: refetchProfile,
   };
 }

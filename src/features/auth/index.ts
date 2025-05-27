@@ -11,4 +11,4 @@ export * from './schemas/auth.schemas';
 export * from './types/auth.types';
 
 // Queries
-export * from './queries/auth.queries';
+export * from './queries/use-auth-queries';

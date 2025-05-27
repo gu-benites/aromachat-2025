@@ -10,14 +10,28 @@ import {
   RateLimitError
 } from '../errors/auth.errors';
 
+/**
+ * Extended error type for API errors with additional metadata
+ * @extends Error
+ */
 type ApiError = Error & {
+  /** HTTP status code if applicable */
   status?: number;
+  /** Error code for programmatic handling */
   code?: string;
+  /** Email associated with the error, if any */
   email?: string;
+  /** Suggested time to wait before retrying (in seconds) */
   retryAfter?: number;
+  /** Human-readable error message */
   message: string;
 };
 
+/**
+ * Type guard to check if an error is an ApiError
+ * @param error - The error to check
+ * @returns True if the error is an ApiError
+ */
 function isApiError(error: unknown): error is ApiError {
   return error instanceof Error;
 }
@@ -25,7 +39,9 @@ function isApiError(error: unknown): error is ApiError {
 const logger = getClientLogger('auth:service');
 
 /**
- * Service for handling authentication operations
+ * Service responsible for all authentication-related operations.
+ * Implements the singleton pattern to ensure a single instance manages auth state.
+ * Handles user sign-up, sign-in, sign-out, and session management.
  */
 export class AuthService {
   private static instance: AuthService;
@@ -33,6 +49,10 @@ export class AuthService {
 
   private constructor() {}
 
+  /**
+   * Gets the singleton instance of AuthService
+   * @returns The singleton AuthService instance
+   */
   public static getInstance(): AuthService {
     if (!AuthService.instance) {
       AuthService.instance = new AuthService();
@@ -41,7 +61,12 @@ export class AuthService {
   }
 
   /**
-   * Register a new user
+   * Registers a new user with the provided credentials
+   * @param userData - User registration data
+   * @returns Authentication data including the new user and session
+   * @throws {EmailAlreadyInUseError} If the email is already registered
+   * @throws {WeakPasswordError} If the password doesn't meet requirements
+   * @throws {RateLimitError} If too many requests are made
    */
   public async signUp({ email, password, firstName, lastName }: SignUpFormData) {
     try {
@@ -73,9 +98,15 @@ export class AuthService {
   }
 
   /**
-   * Sign in with email and password
+   * Authenticates a user with email and password
+   * @param email - User's email address
+   * @param password - User's password
+   * @returns Authentication data including the user and session
+   * @throws {InvalidCredentialsError} If credentials are invalid
+   * @throws {EmailNotVerifiedError} If email verification is required
+   * @throws {RateLimitError} If too many failed attempts
    */
-  public async signInWithEmail(email: string, password: string) {
+  public async signInWithPassword(email: string, password: string) {
     try {
       logger.info('Attempting user sign in', { email });
       
@@ -98,7 +129,9 @@ export class AuthService {
   }
 
   /**
-   * Sign out the current user
+   * Signs out the currently authenticated user
+   * Clears the current session and authentication state
+   * @throws {AuthError} If sign out fails
    */
   public async signOut() {
     try {
@@ -237,4 +270,16 @@ export class AuthService {
 }
 
 // Export a singleton instance
-export const authService = AuthService.getInstance();
+const authService = AuthService.getInstance();
+
+// Export individual methods for easier imports
+export const {
+  signUp,
+  signInWithPassword,
+  signOut,
+  getSession,
+  getUser,
+  updatePassword
+} = authService;
+
+export { authService };

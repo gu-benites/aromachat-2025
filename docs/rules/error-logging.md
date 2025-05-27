@@ -7,7 +7,7 @@ Here's how error logging and handling are managed:
 ## 1. Server-Side Logging (`@Winston`, `getServerLogger`)
 
 *   For structured logging on the backend, `@Winston` is utilized.
-*   The configuration for Winston resides in `src/lib/logger/winston.config.ts`.
+*   The configuration for Winston resides in `src/lib/logger/winston.config.ts`. (`src\lib\logger\server.logger.ts`)
 *   To obtain module-specific logger instances within services, API routes, and Server Actions, a factory function called `getServerLogger(moduleName: string)` is used, provided by `src/lib/logger/index.ts`.
 *   Services should log errors with context using `getServerLogger()`. They are expected to log operations, parameters (while being mindful to mask Personally Identifiable Information - PII), and any errors encountered.
 *   Integration with an observability platform like Sentry is configured on the server side (e.g., in `sentry.server.config.ts`).

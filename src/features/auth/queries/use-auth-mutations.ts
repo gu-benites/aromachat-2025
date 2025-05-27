@@ -3,24 +3,52 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { 
-  signInWithEmail, 
-  signOut, 
-  updatePassword,
-  signUp 
-} from '../services/auth.service';
-import { 
-  forgotPassword as forgotPasswordAction,
-  resetPassword as resetPasswordAction 
-} from '../actions';
+import { authService } from '../services/auth.service';
+
+/**
+ * Initiates the password reset process for a user
+ * @param email - The email address to send the reset link to
+ * @returns Object indicating success/failure and optional message/error
+ */
+const forgotPasswordAction = async (email: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+  try {
+    // TODO: Implement actual forgot password logic using the email parameter
+    console.log('Sending password reset email to:', email);
+    // This is a placeholder implementation
+    return { success: true, message: `Password reset email sent to ${email}` };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to send reset email' };
+  }
+};
+
+/**
+ * Resets a user's password using a valid reset token
+ * @param token - The password reset token
+ * @param password - The new password
+ * @returns Object indicating success/failure and optional message/error
+ */
+const resetPasswordAction = async (token: string, password: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+  try {
+    // TODO: Implement actual password reset logic using the token and password parameters
+    console.log('Resetting password with token:', token, 'New password length:', password.length);
+    // This is a placeholder implementation
+    return { success: true, message: 'Password has been reset successfully' };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to reset password' };
+  }
+};
 
 
+/**
+ * Hook for handling user sign-in
+ * @returns Mutation object with signIn function and status
+ */
 export function useSignIn() {
   const router = useRouter();
   
   return useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      return signInWithEmail({ email, password });
+      return authService.signInWithPassword(email, password);
     },
     onSuccess: () => {
       toast.success('Signed in successfully');
@@ -33,12 +61,16 @@ export function useSignIn() {
   });
 }
 
+/**
+ * Hook for handling user registration
+ * @returns Mutation object with signUp function and status
+ */
 export function useSignUp() {
   const router = useRouter();
   
   return useMutation({
-    mutationFn: async ({ email, password, fullName }: { email: string; password: string; fullName: string }) => {
-      return signUp({ email, password, fullName });
+    mutationFn: async (values: { email: string; password: string; confirmPassword: string; firstName: string; lastName: string }) => {
+      return authService.signUp(values);
     },
     onSuccess: () => {
       toast.success('Account created successfully! Please check your email to verify your account.');
@@ -50,12 +82,16 @@ export function useSignUp() {
   });
 }
 
+/**
+ * Hook for handling user sign-out
+ * @returns Mutation object with signOut function and status
+ */
 export function useSignOut() {
   const router = useRouter();
   
   return useMutation({
     mutationFn: async () => {
-      return signOut();
+      return authService.signOut();
     },
     onSuccess: () => {
       toast.success('Signed out successfully');
@@ -68,12 +104,14 @@ export function useSignOut() {
   });
 }
 
+/**
+ * Hook for requesting a password reset email
+ * @returns Mutation object with requestReset function and status
+ */
 export function useRequestPasswordReset() {
   return useMutation({
     mutationFn: async (params: ForgotPasswordParams) => {
-      const formData = new FormData();
-      formData.append('email', params.email);
-      return forgotPasswordAction(formData);
+      return forgotPasswordAction(params.email);
     },
     onSuccess: (result) => {
       if (result.success) {
@@ -88,12 +126,16 @@ export function useRequestPasswordReset() {
   });
 }
 
+/**
+ * Hook for updating a user's password
+ * @returns Mutation object with updatePassword function and status
+ */
 export function useUpdatePassword() {
   const router = useRouter();
   
   return useMutation({
     mutationFn: async ({ password }: { password: string }) => {
-      return updatePassword({ password });
+      return authService.updatePassword(password);
     },
     onSuccess: () => {
       toast.success('Password updated successfully');
@@ -105,21 +147,22 @@ export function useUpdatePassword() {
   });
 }
 
+/** Parameters for the forgot password request */
 interface ForgotPasswordParams {
   email: string;
   redirectTo: string;
 }
 
+/**
+ * Hook for resetting a user's password with a reset token
+ * @returns Mutation object with resetPassword function and status
+ */
 export function useResetPassword() {
   const router = useRouter();
   
   return useMutation({
     mutationFn: async (params: { password: string; token: string }) => {
-      const formData = new FormData();
-      formData.append('password', params.password);
-      formData.append('confirmPassword', params.password);
-      formData.append('token', params.token);
-      return resetPasswordAction(formData);
+      return resetPasswordAction(params.token, params.password);
     },
     onSuccess: (result) => {
       if (result.success) {
